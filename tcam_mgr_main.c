@@ -1,3 +1,18 @@
+/********************************************************************
+ *
+ *      File:   tcam_mgr_main.c
+ *      Name:   Basavaraj Bendigeri
+ *
+ *       Description:
+ *  This  file contains the UT code for testing the TCAM Bank Handler code
+ *
+ *
+ *
+ *
+ *
+ *
+ *********************************************************************
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -93,9 +108,10 @@ int test_invalid_id_tcam_remove()
     }
 
     ret_val = tcam_remove(tcam, 10);
-    if(ret_val == TCAM_ERR_EINVAL)
+    if(ret_val == TCAM_ERR_EINVAL) {
+        printf("Invalid entry\n");
         printf("Test case passed\n");
-    else {
+    } else {
         printf("Test case failed\n");
         result = FALSE;
     }
@@ -142,7 +158,7 @@ int test_tcam_insert_1()
     int delete_entries[3] = {1,2,4};
     void *tcam = NULL;
     tcam_err_t ret_val = TCAM_ERR_SUCCESS;
-    
+    int num = 3;
     printf("Test case to check for insert of values into TCAM \n");
     if((ret_val = tcam_init(hw_tcam, TCAM_MAX_ENTRIES, &tcam)) != TCAM_ERR_SUCCESS) {
         printf("tcam_init error\n");
@@ -154,8 +170,10 @@ int test_tcam_insert_1()
         return FALSE;
     }
     print_hw_tcam();
-
-    delete_tcam_entries(tcam, delete_entries, 3);
+    num = sizeof(delete_entries)/sizeof(int);
+    printf("Deleting %d entries from TCAM \n",num);
+    delete_tcam_entries(tcam, delete_entries, num);
+    printf("Deleted entries in TCAM\n");
     if((ret_val = tcam_insert(tcam, entries2, 5)) != TCAM_ERR_SUCCESS) {
         printf("tcam_insert failed : %d \n", ret_val);
         return FALSE;
@@ -216,11 +234,11 @@ int test_tcam_insert_3()
 {
     entry_t entries1[10] = {{1, 100}, {2,50}, {3,550}, {4,250},{5,650},{6,800}, {7,100}, {8,450}, {9,350},{10,950}};
     entry_t entries2[3] = {{21, 1000}, {22,150}, {23,1500}};
-
+    int delete_entries[3] = {7,8,1};
     void *tcam = NULL;
     tcam_err_t ret_val = TCAM_ERR_SUCCESS;
 
-    printf("Test case to check for insert of values into TCAM \n");
+    printf("%s : Test case to check for insert of values into TCAM \n", __FUNCTION__);
     if((ret_val = tcam_init(hw_tcam, TCAM_MAX_ENTRIES, &tcam)) != TCAM_ERR_SUCCESS) {
         printf("tcam_init error\n");
         return FALSE;
@@ -231,23 +249,9 @@ int test_tcam_insert_3()
         return FALSE;
     }
     print_hw_tcam();
-
-    if((ret_val = tcam_remove(tcam, 7)) != TCAM_ERR_SUCCESS) {
-        printf("tcam_remove failed : %d \n", ret_val);
-        return FALSE;
-    }
-
-    if((ret_val = tcam_remove(tcam, 1)) != TCAM_ERR_SUCCESS) {
-        printf("tcam_remove failed : %d \n", ret_val);
-        return FALSE;
-    }
-
-    if((ret_val = tcam_remove(tcam, 8)) != TCAM_ERR_SUCCESS) {
-        printf("tcam_remove failed : %d \n", ret_val);
-        return FALSE;
-    }
+    delete_tcam_entries(tcam, delete_entries, 3);
     
-    print_hw_tcam();
+    //print_hw_tcam();
     
     if((ret_val = tcam_insert(tcam, entries2, 3)) != TCAM_ERR_SUCCESS) {
         printf("tcam_insert failed : %d \n", ret_val);
@@ -390,18 +394,20 @@ void print_hw_tcam()
 
 int main()
 {
-    ut_ptr_t ut_fn[9] ={test_full_tcam,test_tcam_insert_1, test_null_tcam_insert, test_null_tcam_remove,
+    ut_ptr_t ut_fn[8] ={/*test_full_tcam,*/test_tcam_insert_1, test_null_tcam_insert, test_null_tcam_remove,
                         test_invalid_id_tcam_remove,test_tcam_insert_2, test_tcam_insert_3,
                         test_tcam_insert_4, test_tcam_program};
     int result = 1, total_tests = 0;
     int fail_count = 0, pass_count = 0, i;
-    total_tests = 9;
+    total_tests = 6;
     for(i = 0;i < total_tests; i++) {
+        printf("\n Test Case %d\n",i);
         result = (*ut_fn[i])();
         if(!result)
             fail_count++;
         else
             pass_count++;
+        
     }
     printf("Total tests : %d , Passed tests : %d , Failed tests : %d\n",
            total_tests, pass_count, fail_count);

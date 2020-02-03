@@ -1,3 +1,23 @@
+/********************************************************************
+ *
+ *      File:   tcam_defs.h
+ *      Name:   Basavaraj Bendigeri
+ *
+ *       Description:
+ *  This header file contains the structure definitions used in the TCAM
+ *  Bank handler code
+ *
+ *
+ * 
+ * 
+ *
+ *
+ *********************************************************************
+ */
+
+
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -16,6 +36,7 @@ typedef enum _tcam_error_t_ {
 } tcam_err_t;
 
 #define    TCAM_CELL_STATE_EMPTY 0
+#define    TCAM_CELL_STATE_BUSY  1
 
 #define TCAM_MAX_ENTRIES 2048
 typedef unsigned char bool;
