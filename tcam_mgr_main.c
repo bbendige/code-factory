@@ -394,12 +394,12 @@ void print_hw_tcam()
 
 int main()
 {
-    ut_ptr_t ut_fn[8] ={/*test_full_tcam,*/test_tcam_insert_1, test_null_tcam_insert, test_null_tcam_remove,
+    ut_ptr_t ut_fn[9] ={test_full_tcam,test_tcam_insert_1, test_null_tcam_insert, test_null_tcam_remove,
                         test_invalid_id_tcam_remove,test_tcam_insert_2, test_tcam_insert_3,
                         test_tcam_insert_4, test_tcam_program};
     int result = 1, total_tests = 0;
     int fail_count = 0, pass_count = 0, i;
-    total_tests = 6;
+    total_tests = 9;
     for(i = 0;i < total_tests; i++) {
         printf("\n Test Case %d\n",i);
         result = (*ut_fn[i])();
