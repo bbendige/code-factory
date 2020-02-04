@@ -43,6 +43,12 @@ typedef unsigned char bool;
 #define TRUE 1
 #define FALSE 0
 
+/* This structure would be used to represent an entry in the TCAM cache and
+ * hw_tcam tables. It has 2 fields :
+ * id - Id of the entry
+ * prio - priority of the entry . This will also define the insertion order
+ * for the entry
+ */
 typedef struct entry_ {
     uint32_t id; //must be unique, 0 means empty TCAM entry
     uint32_t prio; //0 means the highest priority
