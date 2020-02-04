@@ -39,6 +39,13 @@ int delete_tcam_entries(void *tcam, int *entries, int num)
     return TRUE;
 }
 
+/*
+ *  Description:
+ *      UT to insert entries into a NULL TCAM 
+ *  Parameters
+ *  Returns 1 if test passed else 0 
+ */
+
 int test_null_tcam_insert()
 {
     tcam_err_t ret_val = TCAM_ERR_SUCCESS;
@@ -64,6 +71,12 @@ int test_null_tcam_insert()
     return result;
 }
 
+/*
+ *  Description:
+ *      UT to remove  entries from  a NULL TCAM 
+ *  Parameters
+ *  Returns 1 if test passed else 0 
+ */
 int test_null_tcam_remove()
 {
     tcam_err_t ret_val = TCAM_ERR_SUCCESS;
@@ -82,6 +95,12 @@ int test_null_tcam_remove()
     return result;
 }
 
+/*
+ *  Description:
+ *      UT to test for removal of a non-eistant   entry from  a  TCAM 
+ *  Parameters
+ *  Returns 1 if test passed else 0 
+ */
 int test_invalid_id_tcam_remove()
 {
     tcam_err_t ret_val = TCAM_ERR_SUCCESS;
@@ -119,6 +138,17 @@ int test_invalid_id_tcam_remove()
     return result;
 }
 
+/*
+ *  Description:
+ *      UT to test for insertion of an entry in a full TCAM . 
+'*      This function inserts 2045 entries into TCAM and then 
+ *       tries to insert 5 more entries into the TCAM. This 
+ *       results in an error being returned. The function will
+ *       check if that error is returned. if so the test passes ,
+ *       else it fails  
+ *  Parameters
+ *  Returns 1 if test passed else 0 
+ */
 
 int test_full_tcam()
 {
@@ -150,6 +180,19 @@ int test_full_tcam()
     tcam_cache_destroy(tcam);
     return result;
 }
+
+/*
+ *  Description:
+ *      UT to test for insertion of an entry in a full TCAM . 
+'*      This function inserts 2045 entries into TCAM and then 
+ *       tries to insert 5 more entries into the TCAM. This 
+ *       results in an error being returned. The function will
+ *       check if that error is returned. if so the test passes ,
+ *       else it fails  
+ *  Parameters
+ *  Returns 1 if test passed else 0 
+ */
+
 
 int test_tcam_insert_1()
 {
@@ -394,12 +437,12 @@ void print_hw_tcam()
 
 int main()
 {
-    ut_ptr_t ut_fn[8] ={/*test_full_tcam,*/test_tcam_insert_1, test_null_tcam_insert, test_null_tcam_remove,
+    ut_ptr_t ut_fn[9] ={test_full_tcam,test_tcam_insert_1, test_null_tcam_insert, test_null_tcam_remove,
                         test_invalid_id_tcam_remove,test_tcam_insert_2, test_tcam_insert_3,
                         test_tcam_insert_4, test_tcam_program};
     int result = 1, total_tests = 0;
     int fail_count = 0, pass_count = 0, i;
-    total_tests = 6;
+    total_tests = 9;
     for(i = 0;i < total_tests; i++) {
         printf("\n Test Case %d\n",i);
         result = (*ut_fn[i])();
