@@ -451,14 +451,66 @@ void print_hw_tcam()
     }
 }
 
+
+int test_full_insert_remove_start()
+{
+    entry_t entry[TCAM_MAX_ENTRIES];
+    tcam_err_t ret_val = TCAM_ERR_SUCCESS;
+    void *tcam = NULL;
+    int result = TRUE, i, prio, id, cnt = 25;
+    if ((ret_val = tcam_init(hw_tcam, TCAM_MAX_ENTRIES, &tcam))
+        != TCAM_ERR_SUCCESS) {
+        printf("tcam_init error\n");
+        exit(1);
+    }
+    
+    for (i = 0, prio = 20, id = 1; i < cnt; i++, id++, prio += 10) {
+        entry[i].prio = prio;
+        entry[i].id = id;
+    }
+    
+
+    printf("\nInserting %d entries\n",cnt);
+    if ((ret_val = tcam_insert(tcam, entry, cnt ))
+        != TCAM_ERR_SUCCESS) {
+        printf("tcam_insert failed : %d \n", ret_val);
+        return FALSE;
+    }
+
+    //  print_hw_tcam();
+    printf("Deleting some entries\n");
+    /* delete first 15 entries */
+    for (i = 0; i < 15; i++) {
+        if ((ret_val = tcam_remove(tcam, (i+1))) != TCAM_ERR_SUCCESS) {
+            printf("tcam_remove(%d) failed : %d \n", (i+1), ret_val);
+            return FALSE;
+        }
+    }
+
+    print_hw_tcam();
+    
+/* add 10 new entries to TCAM, we should have room for 15 */
+    for (i = 0, prio = 1; i < 10; i++, id++, prio++) {
+        entry[i].prio = prio;
+        entry[i].id = id;
+    }
+    if ((ret_val = tcam_insert(tcam, entry, 10)) != TCAM_ERR_SUCCESS) {
+        printf("tcam_insert one failed : %d \n", ret_val);
+        return FALSE;
+    }
+    print_hw_tcam();
+    tcam_cache_destroy(tcam);
+    return TRUE;
+}
+    
 int main()
 {
-    ut_ptr_t ut_fn[10] ={test_full_tcam,test_tcam_insert_1, test_null_tcam_insert, test_null_tcam_remove,
+    ut_ptr_t ut_fn[11] ={test_full_tcam,test_tcam_insert_1, test_null_tcam_insert, test_null_tcam_remove,
                            test_invalid_id_tcam_remove,test_tcam_insert_2,test_tcam_insert_3,
-                           test_tcam_insert_4, test_tcam_program,test_full_insert_remove};
+                         test_tcam_insert_4, test_tcam_program,test_full_insert_remove,test_full_insert_remove_start};
     int result = 1, total_tests = 0;
     int fail_count = 0, pass_count = 0, i;
-    total_tests = 10;
+    total_tests = 11;
     for(i = 0;i < total_tests; i++) {
         printf("\n Test Case %d\n",i);
         result = (*ut_fn[i])();
