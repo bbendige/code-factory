@@ -40,6 +40,8 @@ static entry_t *hw_tcam_local = NULL;
 // and looked up whenever an entry has to inserted into the TCAM bank
 // handler and subsequently hw_tcam
 bool *insert_list ;
+bool *shift_window ;
+
 
 /*  Description:
  *     This API initializes a TCAM bank handler (TCAM cache ) serving the given
@@ -64,6 +66,11 @@ tcam_err_t tcam_init(entry_t *hw_tcam, uint32_t size, void **tcam)
     insert_list = calloc(size, sizeof(bool));
     if(insert_list == NULL)
         return TCAM_ERR_MEM_ALLOC_FAIL;
+
+    shift_window = calloc(size, sizeof(bool));
+    if(shift_window == NULL)
+        return TCAM_ERR_MEM_ALLOC_FAIL;
+    
     return TCAM_ERR_SUCCESS;
 }
 
@@ -98,30 +105,41 @@ tcam_err_t tcam_insert(void *tcam, entry_t *entries, uint32_t num)
     uint64_t n1 , n2 ;
     entry_t entry;
     entry_t *tcam_cache = (entry_t *) tcam;
-    bool shift_cell = FALSE, found = FALSE;
+    bool shift_up = FALSE, shift_down = FALSE, found = FALSE;
+    int32_t shift_policy = TCAM_ENTRY_SHIFT_NO_SHIFT;
+    int32_t shift_start , shift_end;
     
     if(tcam_cache == NULL)
         return TCAM_ERR_NULL_CACHE;
 
+    printf("Total number of tcam entries before insertion : %d\n",total_tcam_entries);
+    printf("The number of new entries is : %d\n", num);
     // let's check if there is enough memory in the TCAM Bank handler A.K.A tcam cache to
     // incorporate these entries
-    if((total_tcam_entries + num) >= max_tcam_entries)
+    if((total_tcam_entries + num) > max_tcam_entries) {
+        printf("The number of entries exceed the maximum number\n");
        return TCAM_ERR_TCAM_FULL;
+    }
 
-    printf("Total number of tcam entries before insertion : %d\n",total_tcam_entries);
+
     memset(insert_list, TCAM_CELL_STATE_EMPTY, max_tcam_entries);
+    memset(shift_window, TCAM_CELL_STATE_EMPTY, max_tcam_entries);
+        
     i = 0;
     top = max_tcam_entries;
     // First entry
     if(total_tcam_entries <= 0) {
         total_tcam_entries  = 1;
-        tcam_cache[0] = entries[0];
+        insert_pos = 0;
+        tcam_cache[insert_pos] = entries[0];
         i = 1;
-        top = 0;
-        insert_list[0] = TCAM_CELL_STATE_BUSY;
+        insert_list[insert_pos] = TCAM_CELL_STATE_BUSY;
+        shift_window[insert_pos] = TCAM_CELL_STATE_BUSY;
     } 
 
-    shift_cell = FALSE;
+    shift_up = shift_down = FALSE;
+    shift_start = shift_end = -1;
+   
     for(; i < num; i++) {        
         found = FALSE;
         insert_pos = 0;
@@ -138,61 +156,131 @@ tcam_err_t tcam_insert(void *tcam, entry_t *entries, uint32_t num)
             // insert. So first let's check if we can insert at the previous
             // slot else we may need to shift the old entries by one position
             if((j == 0) || ((j > 0) && (tcam_cache[j-1].id != TCAM_CELL_STATE_EMPTY))) {
-                shift_cell = TRUE;
+
                 // We have to shift the entries  by one cell to make
                 // way for the new entry
                 for(shift_pos = j+1 ;
                     ((tcam_cache[shift_pos].id != TCAM_CELL_STATE_EMPTY) && (shift_pos < max_tcam_entries));shift_pos++);
                 
-                if(shift_pos >= max_tcam_entries)
-                    return TCAM_ERR_TCAM_FULL;
-                
-                memmove(&tcam_cache[j+1], &tcam_cache[j],(shift_pos-j) * sizeof(entry_t));
+                if(shift_pos >= max_tcam_entries) {
+                    // We could'nt find an entry to shift down . So let's check if we can find an empty entry to shift upwards
+                    for(shift_pos = j; ((tcam_cache[shift_pos].id != TCAM_CELL_STATE_EMPTY) && (shift_pos >= 0));shift_pos--);
+
+                    if(shift_pos <= 0) {
+                        printf("ERROR : Could'nt find an empty entry slot  \n");
+                        return TCAM_ERR_TCAM_FULL;
+                    }
+                    memmove(&tcam_cache[shift_pos], &tcam_cache[shift_pos+1],(j-shift_pos) * sizeof(entry_t));
+                    shift_window[shift_pos] = TCAM_CELL_STATE_BUSY; // let's record the start
+                    shift_window[j] = TCAM_CELL_STATE_BUSY;         // record the end 
+                    shift_up = TRUE;
+                } else {
+                    memmove(&tcam_cache[j+1], &tcam_cache[j],(shift_pos-j) * sizeof(entry_t));
+                    shift_window[j] = TCAM_CELL_STATE_BUSY; // let's record the start
+                    shift_window[shift_pos] = TCAM_CELL_STATE_BUSY;         // record the end 
+                    shift_down = TRUE;
+                }
                 insert_pos = j;
-            } else
+            } else  { // empty slot found
                 insert_pos = j-1;
+                shift_window[insert_pos] = TCAM_CELL_STATE_BUSY;  
+            }
         } else {
-            // Not found . We would have to insert the new element at
-            // the end of the existing elements
-            // Let's find an empty slot . We have to start from the end
-            // of the tcam_cache table and move up to find an empty slot
-            for(j = max_tcam_entries; (j > 0) && (tcam_cache[j].id == TCAM_CELL_STATE_EMPTY); j--);
-            // We found a non-empty entry . So let's point j to the next
-            // index/position which can be used for the new  entry
-            insert_pos = j+1;
+            /* No valid slot found. There are 3 reasons for this to happen :
+             * 1. We could not find an empty slot at all
+             * 2. There are empty slots in the middle of the tcam cache but this entry has to be inserted at the 
+             *     end of the table.
+             * 3. There are empty slots at the end of the tcam cache and this entry has to be inserted at the
+             *    first such entry
+             *    So we have to first start from the end of the cache and iterate backwards to find an empty slot .
+             *    If no empty slot is found, then we have to return an error. 
+             *    To check for case 2 mentioned above, let's check if the last entry (for e.g, 2047th) entry is occupied . This means 
+             *    we have to shift the entries upwards and insert the new entry at the end 
+             *    If the last entry is empty, then we just iterate backwards until we find the first non-empty entry and then 
+             *    insert this new entry after that position 
+             */
+            j = max_tcam_entries-1;
+            if(tcam_cache[j].id != TCAM_CELL_STATE_EMPTY) {
+                for(shift_pos = j ; (shift_pos >= 0) && (tcam_cache[shift_pos].id != TCAM_CELL_STATE_EMPTY); shift_pos--);
+
+                if(shift_pos < 0 ) {
+                    // All entries are full. Not empty slot found  found . Return an error
+                    printf("ERROR : Could'nt find an empty slot to shift the entries upwards \n");
+                    return TCAM_ERR_TCAM_FULL;
+                }
+                memmove(&tcam_cache[shift_pos], &tcam_cache[shift_pos+1],(j-shift_pos) * sizeof(entry_t));
+                shift_window[shift_pos] = TCAM_CELL_STATE_BUSY; // let's record the start
+                shift_window[j] = TCAM_CELL_STATE_BUSY;         // record the end    
+                insert_pos = j;
+                shift_up = TRUE;
+            } else {
+                /* We iterate backwards until we hit a non-empty slot. Then we just insert the new entry at 
+                 * the (non-empty slot index + 1)
+                 */
+                for(shift_pos = j ; (shift_pos >= 0) && (tcam_cache[shift_pos].id == TCAM_CELL_STATE_EMPTY); shift_pos--);
+                
+                /*  Found an entry or none at all. If found, we insert at the 'j'th index or at the '0'th index.
+                 *  There is a small caveat here . If in case the value of j < 0, then that means that all entries 
+                 *  are emtpy from end to start of the cache. Should'nt happen but that also will be handled, when we 
+                 *  insert at the '0'th index 
+                 */
+                insert_pos = shift_pos+1;
+                shift_window[insert_pos] = TCAM_CELL_STATE_BUSY; 
+            }
         }
         // Now let's copy the entry at the intended position , i.e "insert_pos"
         tcam_cache[insert_pos] = entries[i];
-        // Let's record the position where the insertion was done. This
-        // would be needed for programming hw_tcam
-        if(insert_pos < top)
-            top = insert_pos;
         insert_list[insert_pos] = TCAM_CELL_STATE_BUSY;
         total_tcam_entries++;
     }
-    printf("The number of new entries is : %d\n", num);
+
+    if(shift_up || shift_down) {
+        for(i = 0; (i < max_tcam_entries) && (shift_window[i] != TCAM_CELL_STATE_BUSY); i++);
+        shift_start = i;
+
+        for(i =	max_tcam_entries; (i > 0) && (shift_window[i] != TCAM_CELL_STATE_BUSY); i--);
+        shift_end = i;
+    }
+    shift_policy = TCAM_ENTRY_SHIFT_NO_SHIFT;
+    if(shift_up && shift_down)
+        shift_policy = TCAM_ENTRY_SHIFT_UP_DOWN;
+    else if(shift_up)
+        shift_policy = TCAM_ENTRY_SHIFT_UP;
+    else if(shift_down)
+        shift_policy = TCAM_ENTRY_SHIFT_DOWN;
+
+
     //printf("Total number of tcam entries : %d\n",total_tcam_entries);
     n1 = tcam_get_hw_access_cnt();
-    /* We have to now program hw_tcam. We first check if any entries were
-       shifted to accomodate the new entries. If so, then all the valid values in
-       tcam_cache starting from end of tcam_cache to the index pointed to by
-       "top" , are programmed in hw_tcam.
-       Else the insert_list values contain the individual indices were
-       programming has to be done. The valid values in that array will be
-       programmed in hw_tcam
-    */
-       
-    if(shift_cell) {
-        for(i = max_tcam_entries; i >= top ; i--) {
-            if(tcam_cache[i].id != TCAM_CELL_STATE_EMPTY)
-                tcam_program(hw_tcam_local, &tcam_cache[i], i);
-        }
-    } else {
+    
+    switch(shift_policy) {
+    case TCAM_ENTRY_SHIFT_NO_SHIFT:
         for(i = 0; i < max_tcam_entries; i++) {
             if((insert_list[i]) && (tcam_cache[i].id != TCAM_CELL_STATE_EMPTY))
                 tcam_program(hw_tcam_local, &tcam_cache[i], i);
         }
+        break;
+
+    case TCAM_ENTRY_SHIFT_UP:
+    case TCAM_ENTRY_SHIFT_UP_DOWN:
+        for(i = shift_start ; i <= shift_end; i++) {
+            if(tcam_cache[i].id != TCAM_CELL_STATE_EMPTY)
+                tcam_program(hw_tcam_local, &tcam_cache[i], i);
+        }
+        break;
+
+    case TCAM_ENTRY_SHIFT_DOWN:
+        for(i = shift_end ; i >= shift_start; i--) {
+            if(tcam_cache[i].id != TCAM_CELL_STATE_EMPTY)
+                tcam_program(hw_tcam_local, &tcam_cache[i], i);
+        }
+        break;
+
+    default :
+        printf("Invalid \n");
+        break;
     }
+
     n2 = tcam_get_hw_access_cnt();
     printf("The number of programming to hw_tcam for %d entries is %llu\n",num, (n2-n1)); 
     return TCAM_ERR_SUCCESS;

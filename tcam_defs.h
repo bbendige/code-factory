@@ -55,5 +55,11 @@ typedef struct entry_ {
 
 } entry_t;
 
+enum tcam_entry_shift_policy_t {
+    TCAM_ENTRY_SHIFT_NO_SHIFT = 0,
+    TCAM_ENTRY_SHIFT_UP = 1,
+    TCAM_ENTRY_SHIFT_DOWN = 2,
+    TCAM_ENTRY_SHIFT_UP_DOWN = 3
+};
 
 #endif

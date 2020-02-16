@@ -29,7 +29,10 @@ int delete_tcam_entries(void *tcam, int *entries, int num)
 {
     int i = 0;
     tcam_err_t ret_val = TCAM_ERR_SUCCESS;
-    
+    printf("Deleting entries :");
+    for(i = 0; i < num; i++)
+        printf("%-4d",entries[i]);
+    printf("\n\n");
     for(i = 0; i < num; i++) {
         if((ret_val = tcam_remove(tcam, entries[i])) != TCAM_ERR_SUCCESS) {
             printf("tcam_remove failed : %d \n", ret_val);
@@ -231,6 +234,7 @@ int test_tcam_insert_2()
 {
     entry_t entries1[5] = {{1, 300}, {2,100}, {3,500}, {4,400},{5,600}};
     entry_t entries2[5] = {{1, 300}, {2,200}, {3,700}, {4,800},{5,900}};
+    int delete_entries[3] = {1,2,5};
     void *tcam = NULL;
     tcam_err_t ret_val = TCAM_ERR_SUCCESS;
 
@@ -246,22 +250,7 @@ int test_tcam_insert_2()
     }
     print_hw_tcam();
 
-
-    if((ret_val = tcam_remove(tcam, 1)) != TCAM_ERR_SUCCESS) {
-        printf("tcam_remove failed : %d \n", ret_val);
-        return FALSE;
-    }
-
-    if((ret_val = tcam_remove(tcam, 2)) != TCAM_ERR_SUCCESS) {
-        printf("tcam_remove failed : %d \n", ret_val);
-        return FALSE;
-    }
-    
-    if((ret_val = tcam_remove(tcam, 5)) != TCAM_ERR_SUCCESS) {
-        printf("tcam_remove failed : %d \n", ret_val);
-        return FALSE;
-    }
-
+    delete_tcam_entries(tcam, delete_entries, 3);
     print_hw_tcam();
     if((ret_val = tcam_insert(tcam, entries2, 5)) != TCAM_ERR_SUCCESS) {
         printf("tcam_insert failed : %d \n", ret_val);
@@ -310,7 +299,7 @@ int test_tcam_insert_4()
 {
     entry_t entries1[10] = {{1, 100}, {2,50}, {3,550}, {4,250},{5,650},{6,800}, {7,100}, {8,450}, {9,350},{10,950}};
     entry_t entries2[3] = {{21, 200}, {22,150}, {23,400}};
-
+    int delete_entries[3] = {7,1,8};
     void *tcam = NULL;
     tcam_err_t ret_val = TCAM_ERR_SUCCESS;
 
@@ -326,21 +315,7 @@ int test_tcam_insert_4()
     }
     print_hw_tcam();
 
-    if((ret_val = tcam_remove(tcam, 7)) != TCAM_ERR_SUCCESS) {
-        printf("tcam_remove failed : %d \n", ret_val);
-        return FALSE;
-    }
-
-    if((ret_val = tcam_remove(tcam, 1)) != TCAM_ERR_SUCCESS) {
-        printf("tcam_remove failed : %d \n", ret_val);
-        return FALSE;
-    }
-
-    if((ret_val = tcam_remove(tcam, 8)) != TCAM_ERR_SUCCESS) {
-        printf("tcam_remove failed : %d \n", ret_val);
-        return FALSE;
-    }
-    
+    delete_tcam_entries(tcam, delete_entries, 3);
     print_hw_tcam();
     
     if((ret_val = tcam_insert(tcam, entries2, 3)) != TCAM_ERR_SUCCESS) {
@@ -359,6 +334,7 @@ int test_tcam_program()
     void *tcam = NULL;
     entry_t entry[10];
     int32_t id = 0;
+    int delete_entries[2] = {3,6};
     if((ret_val = tcam_init(hw_tcam, TCAM_MAX_ENTRIES, &tcam)) != TCAM_ERR_SUCCESS) {
         printf("tcam_init error\n");
         return FALSE;
@@ -389,22 +365,11 @@ int test_tcam_program()
         printf("tcam_insert failed : %d \n", ret_val);
         return FALSE;
     }
-    //print_tcam_cache(tcam);
+
     print_hw_tcam();
-    id = 3;
-    if((ret_val = tcam_remove(tcam, id)) != TCAM_ERR_SUCCESS) {
-        printf("tcam_remove failed : %d \n", ret_val);
-        return FALSE;
-    }
-    //print_tcam_cache(tcam);
-    print_hw_tcam();
-    id = 6;
-    if((ret_val = tcam_remove(tcam, id)) != TCAM_ERR_SUCCESS) {
-        printf("tcam_remove failed : %d \n", ret_val);
-        return FALSE;
-    }
-    printf("TCAM cache after deleting id : %d\n", id);
-    //print_tcam_cache(tcam);
+
+    delete_tcam_entries(tcam, delete_entries, 2);
+    
     print_hw_tcam();
     
     entry[0].prio = 150;
@@ -418,12 +383,63 @@ int test_tcam_program()
         return FALSE;
     }
     
-    //print_tcam_cache(tcam);
     print_hw_tcam();
     tcam_cache_destroy(tcam);
     return TRUE;
 }
 
+
+int test_full_insert_remove()
+{
+    entry_t entry[TCAM_MAX_ENTRIES];
+    tcam_err_t ret_val = TCAM_ERR_SUCCESS;
+    void *tcam = NULL;
+    int result = TRUE, i, prio, id;
+    if ((ret_val = tcam_init(hw_tcam, TCAM_MAX_ENTRIES, &tcam))
+        != TCAM_ERR_SUCCESS) {
+        printf("tcam_init error\n");
+        exit(1);
+    }
+    
+    for (i = 0, prio = 20, id = 1; i < TCAM_MAX_ENTRIES; i++, id++, prio += 10) {
+        entry[i].prio = prio;
+        entry[i].id = id;
+    }
+    
+/* you have an off-by-one bug here */
+    printf("\nInserting %d entries\n",TCAM_MAX_ENTRIES);
+    if ((ret_val = tcam_insert(tcam, entry, TCAM_MAX_ENTRIES ))
+        != TCAM_ERR_SUCCESS) {
+        printf("tcam_insert failed : %d \n", ret_val);
+        return FALSE;
+    }
+
+    //  print_hw_tcam();
+
+    /* delete 15 entries */
+    for (i = 10; i < 25; i++) {
+        if ((ret_val = tcam_remove(tcam, i)) != TCAM_ERR_SUCCESS) {
+            printf("tcam_remove(%d) failed : %d \n", i, ret_val);
+            return FALSE;
+        }
+    }
+
+//    print_hw_tcam();
+    
+/* add 10 new entries to TCAM, we should have room for 15 */
+    for (i = 0; i < 10; i++, id++, prio += 10) {
+        entry[i].prio = prio;
+        entry[i].id = id;
+    }
+    if ((ret_val = tcam_insert(tcam, entry, 10)) != TCAM_ERR_SUCCESS) {
+        printf("tcam_insert one failed : %d \n", ret_val);
+        return FALSE;
+    }
+//    print_hw_tcam();
+    tcam_cache_destroy(tcam);
+    return TRUE;
+}
+    
 void print_hw_tcam()
 {
     int i ;
@@ -437,12 +453,12 @@ void print_hw_tcam()
 
 int main()
 {
-    ut_ptr_t ut_fn[9] ={test_full_tcam,test_tcam_insert_1, test_null_tcam_insert, test_null_tcam_remove,
-                        test_invalid_id_tcam_remove,test_tcam_insert_2, test_tcam_insert_3,
-                        test_tcam_insert_4, test_tcam_program};
+    ut_ptr_t ut_fn[10] ={test_full_tcam,test_tcam_insert_1, test_null_tcam_insert, test_null_tcam_remove,
+                           test_invalid_id_tcam_remove,test_tcam_insert_2,test_tcam_insert_3,
+                           test_tcam_insert_4, test_tcam_program,test_full_insert_remove};
     int result = 1, total_tests = 0;
     int fail_count = 0, pass_count = 0, i;
-    total_tests = 9;
+    total_tests = 10;
     for(i = 0;i < total_tests; i++) {
         printf("\n Test Case %d\n",i);
         result = (*ut_fn[i])();
@@ -452,6 +468,6 @@ int main()
             pass_count++;
         
     }
-    printf("Total tests : %d , Passed tests : %d , Failed tests : %d\n",
+    printf("\n\nTotal tests : %d , Passed tests : %d , Failed tests : %d\n",
            total_tests, pass_count, fail_count);
 }
