@@ -143,7 +143,7 @@ tcam_err_t tcam_insert(void *tcam, entry_t *entries, uint32_t num)
     for(; i < num; i++) {        
         found = FALSE;
         insert_pos = 0;
-         for(j = 0; j < max_tcam_entries; j++) {
+        for(j = 0; j < max_tcam_entries; j++) {
             if((tcam_cache[j].id != TCAM_CELL_STATE_EMPTY) && (tcam_cache[j].prio >= entries[i].prio)) {
                 found = TRUE;
                 break;
@@ -164,23 +164,24 @@ tcam_err_t tcam_insert(void *tcam, entry_t *entries, uint32_t num)
                 
                 if(shift_pos >= max_tcam_entries) {
                     // We could'nt find an entry to shift down . So let's check if we can find an empty entry to shift upwards
-                    for(shift_pos = j; ((tcam_cache[shift_pos].id != TCAM_CELL_STATE_EMPTY) && (shift_pos >= 0));shift_pos--);
+                    insert_pos = (j-1);
+                    for(shift_pos = insert_pos; ((tcam_cache[shift_pos].id != TCAM_CELL_STATE_EMPTY) && (shift_pos >= 0));shift_pos--);
 
                     if(shift_pos <= 0) {
                         printf("ERROR : Could'nt find an empty entry slot  \n");
                         return TCAM_ERR_TCAM_FULL;
                     }
-                    memmove(&tcam_cache[shift_pos], &tcam_cache[shift_pos+1],(j-shift_pos) * sizeof(entry_t));
+                    memmove(&tcam_cache[shift_pos], &tcam_cache[shift_pos+1],(insert_pos-shift_pos) * sizeof(entry_t));
                     shift_window[shift_pos] = TCAM_CELL_STATE_BUSY; // let's record the start
                     shift_window[j] = TCAM_CELL_STATE_BUSY;         // record the end 
                     shift_up = TRUE;
                 } else {
-                    memmove(&tcam_cache[j+1], &tcam_cache[j],(shift_pos-j) * sizeof(entry_t));
+                    insert_pos = j;
+                    memmove(&tcam_cache[j+1], &tcam_cache[j],(shift_pos-insert_pos) * sizeof(entry_t));
                     shift_window[j] = TCAM_CELL_STATE_BUSY; // let's record the start
                     shift_window[shift_pos] = TCAM_CELL_STATE_BUSY;         // record the end 
                     shift_down = TRUE;
                 }
-                insert_pos = j;
             } else  { // empty slot found
                 insert_pos = j-1;
                 shift_window[insert_pos] = TCAM_CELL_STATE_BUSY;  
@@ -199,25 +200,26 @@ tcam_err_t tcam_insert(void *tcam, entry_t *entries, uint32_t num)
              *    If the last entry is empty, then we just iterate backwards until we find the first non-empty entry and then 
              *    insert this new entry after that position 
              */
-            j = max_tcam_entries-1;
-            if(tcam_cache[j].id != TCAM_CELL_STATE_EMPTY) {
-                for(shift_pos = j ; (shift_pos >= 0) && (tcam_cache[shift_pos].id != TCAM_CELL_STATE_EMPTY); shift_pos--);
+
+            insert_pos = max_tcam_entries-1;
+            if(tcam_cache[insert_pos].id != TCAM_CELL_STATE_EMPTY) {
+
+                for(shift_pos = insert_pos ; (shift_pos >= 0) && (tcam_cache[shift_pos].id != TCAM_CELL_STATE_EMPTY); shift_pos--);
 
                 if(shift_pos < 0 ) {
                     // All entries are full. Not empty slot found  found . Return an error
                     printf("ERROR : Could'nt find an empty slot to shift the entries upwards \n");
                     return TCAM_ERR_TCAM_FULL;
                 }
-                memmove(&tcam_cache[shift_pos], &tcam_cache[shift_pos+1],(j-shift_pos) * sizeof(entry_t));
+                memmove(&tcam_cache[shift_pos], &tcam_cache[shift_pos+1],(insert_pos-shift_pos) * sizeof(entry_t));
                 shift_window[shift_pos] = TCAM_CELL_STATE_BUSY; // let's record the start
-                shift_window[j] = TCAM_CELL_STATE_BUSY;         // record the end    
-                insert_pos = j;
+                shift_window[insert_pos] = TCAM_CELL_STATE_BUSY;         // record the end    
                 shift_up = TRUE;
             } else {
                 /* We iterate backwards until we hit a non-empty slot. Then we just insert the new entry at 
                  * the (non-empty slot index + 1)
                  */
-                for(shift_pos = j ; (shift_pos >= 0) && (tcam_cache[shift_pos].id == TCAM_CELL_STATE_EMPTY); shift_pos--);
+                for(shift_pos = insert_pos ; (shift_pos >= 0) && (tcam_cache[shift_pos].id == TCAM_CELL_STATE_EMPTY); shift_pos--);
                 
                 /*  Found an entry or none at all. If found, we insert at the 'j'th index or at the '0'th index.
                  *  There is a small caveat here . If in case the value of j < 0, then that means that all entries 
@@ -263,6 +265,7 @@ tcam_err_t tcam_insert(void *tcam, entry_t *entries, uint32_t num)
 
     case TCAM_ENTRY_SHIFT_UP:
     case TCAM_ENTRY_SHIFT_UP_DOWN:
+        printf("Writing entries from %d to %d\n",shift_start, shift_end);
         for(i = shift_start ; i <= shift_end; i++) {
             if(tcam_cache[i].id != TCAM_CELL_STATE_EMPTY)
                 tcam_program(hw_tcam_local, &tcam_cache[i], i);
