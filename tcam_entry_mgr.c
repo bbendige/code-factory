@@ -301,7 +301,7 @@ tcam_err_t tcam_insert(void *tcam, entry_t *entries, uint32_t num)
         break;
 
     case TCAM_ENTRY_SHIFT_DOWN:
-        
+        printf("Writing entries from  %d backwards to %d\n",shift_end, shift_start);
         for(i = shift_end ; i >= shift_start; i--) {
             if(tcam_cache[i].id != TCAM_CELL_STATE_EMPTY)
                 tcam_program(hw_tcam_local, &tcam_cache[i], i);
