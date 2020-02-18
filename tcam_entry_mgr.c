@@ -40,6 +40,11 @@ static entry_t *hw_tcam_local = NULL;
 // and looked up whenever an entry has to inserted into the TCAM bank
 // handler and subsequently hw_tcam
 bool *insert_list ;
+
+/* When the tcam_cache cells are shifted up and down, the entire range of indices has to be recorded, 
+ * the entries within that range will have to be programmed in hw_tcam. This array is used to
+ * record that range .
+ */ 
 bool *shift_window ;
 
 
@@ -172,18 +177,25 @@ tcam_err_t tcam_insert(void *tcam, entry_t *entries, uint32_t num)
                         return TCAM_ERR_TCAM_FULL;
                     }
                     memmove(&tcam_cache[shift_pos], &tcam_cache[shift_pos+1],(insert_pos-shift_pos) * sizeof(entry_t));
-                    shift_window[shift_pos] = TCAM_CELL_STATE_BUSY; // let's record the start
-                    shift_window[j] = TCAM_CELL_STATE_BUSY;         // record the end 
+                    // Indicate that we had to shift up
                     shift_up = TRUE;
+                    // since the entries are shifted , we have to record the start and end of the range of entries
+                    shift_window[shift_pos] = TCAM_CELL_STATE_BUSY; // let's record the start
+                    shift_window[j] = TCAM_CELL_STATE_BUSY;         // record the end
                 } else {
                     insert_pos = j;
                     memmove(&tcam_cache[j+1], &tcam_cache[j],(shift_pos-insert_pos) * sizeof(entry_t));
-                    shift_window[j] = TCAM_CELL_STATE_BUSY; // let's record the start
-                    shift_window[shift_pos] = TCAM_CELL_STATE_BUSY;         // record the end 
+                    // Indicate that we had to shift up
                     shift_down = TRUE;
+                    // since the entries are shifted , we have to record the start and end of the range of entries
+                    shift_window[j] = TCAM_CELL_STATE_BUSY; // let's record the start
+                    shift_window[shift_pos] = TCAM_CELL_STATE_BUSY;         // record the end
                 }
             } else  { // empty slot found
                 insert_pos = j-1;
+                /* Even when entries are not shifted , we have to record the position , since there may be other entries
+                 * in the input for which shfiting has to be done. This index is recorded so that it may not be missed 
+                 */
                 shift_window[insert_pos] = TCAM_CELL_STATE_BUSY;  
             }
         } else {
@@ -212,6 +224,7 @@ tcam_err_t tcam_insert(void *tcam, entry_t *entries, uint32_t num)
                     return TCAM_ERR_TCAM_FULL;
                 }
                 memmove(&tcam_cache[shift_pos], &tcam_cache[shift_pos+1],(insert_pos-shift_pos) * sizeof(entry_t));
+                // since the entries are shifted , we have to record the start and end of the range of entries
                 shift_window[shift_pos] = TCAM_CELL_STATE_BUSY; // let's record the start
                 shift_window[insert_pos] = TCAM_CELL_STATE_BUSY;         // record the end    
                 shift_up = TRUE;
@@ -227,6 +240,9 @@ tcam_err_t tcam_insert(void *tcam, entry_t *entries, uint32_t num)
                  *  insert at the '0'th index 
                  */
                 insert_pos = shift_pos+1;
+                /* Even when entries are not shifted , we have to record the position , since there may be other entries
+                 * in the input for which shfiting has to be done. This index is recorded so that it may not be missed 
+                 */
                 shift_window[insert_pos] = TCAM_CELL_STATE_BUSY; 
             }
         }
@@ -235,7 +251,10 @@ tcam_err_t tcam_insert(void *tcam, entry_t *entries, uint32_t num)
         insert_list[insert_pos] = TCAM_CELL_STATE_BUSY;
         total_tcam_entries++;
     }
-
+    /* if the entries were either shifted up or down, then we have to iterate through the shift_window 
+     * to record the start and end of that window. This will help when have to program that range of entries
+     * in hw_tcam
+     */
     if(shift_up || shift_down) {
         for(i = 0; (i < max_tcam_entries) && (shift_window[i] != TCAM_CELL_STATE_BUSY); i++);
         shift_start = i;
@@ -244,19 +263,27 @@ tcam_err_t tcam_insert(void *tcam, entry_t *entries, uint32_t num)
         shift_end = i;
     }
     shift_policy = TCAM_ENTRY_SHIFT_NO_SHIFT;
-    if(shift_up && shift_down)
+    if(shift_up && shift_down) {
         shift_policy = TCAM_ENTRY_SHIFT_UP_DOWN;
-    else if(shift_up)
+        printf("Shift policy = TCAM_ENTRY_SHIFT_UP_DOWN\n");
+    }
+    else if(shift_up) {
+        printf("Shift policy = TCAM_ENTRY_SHIFT_UP\n");
         shift_policy = TCAM_ENTRY_SHIFT_UP;
-    else if(shift_down)
+    }    else if(shift_down) {
         shift_policy = TCAM_ENTRY_SHIFT_DOWN;
-
+        printf("Shift policy = TCAM_ENTRY_SHIFT_DOWN\n");
+    }
 
     //printf("Total number of tcam entries : %d\n",total_tcam_entries);
     n1 = tcam_get_hw_access_cnt();
     
     switch(shift_policy) {
     case TCAM_ENTRY_SHIFT_NO_SHIFT:
+        /* No entries were shifted. So we just program the entries at that index
+         * in hw_tcam. This will be a proper O(n) solution
+         */
+        printf("Shift policy = TCAM_ENTRY_NO_SHIFT\n");
         for(i = 0; i < max_tcam_entries; i++) {
             if((insert_list[i]) && (tcam_cache[i].id != TCAM_CELL_STATE_EMPTY))
                 tcam_program(hw_tcam_local, &tcam_cache[i], i);
@@ -265,6 +292,7 @@ tcam_err_t tcam_insert(void *tcam, entry_t *entries, uint32_t num)
 
     case TCAM_ENTRY_SHIFT_UP:
     case TCAM_ENTRY_SHIFT_UP_DOWN:
+
         printf("Writing entries from %d to %d\n",shift_start, shift_end);
         for(i = shift_start ; i <= shift_end; i++) {
             if(tcam_cache[i].id != TCAM_CELL_STATE_EMPTY)
@@ -273,6 +301,7 @@ tcam_err_t tcam_insert(void *tcam, entry_t *entries, uint32_t num)
         break;
 
     case TCAM_ENTRY_SHIFT_DOWN:
+        
         for(i = shift_end ; i >= shift_start; i--) {
             if(tcam_cache[i].id != TCAM_CELL_STATE_EMPTY)
                 tcam_program(hw_tcam_local, &tcam_cache[i], i);

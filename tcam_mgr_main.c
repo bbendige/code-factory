@@ -59,6 +59,66 @@ void print_hw_tcam()
     print_hw_tcam_with_index(0, TCAM_MAX_ENTRIES);
 }
 
+int test_tcam_program()
+{
+    tcam_err_t ret_val = TCAM_ERR_SUCCESS;
+    void *tcam = NULL;
+    entry_t entry[10];
+    int32_t id = 0;
+    int delete_entries[2] = {3,6};
+    if((ret_val = tcam_init(hw_tcam, TCAM_MAX_ENTRIES, &tcam)) != TCAM_ERR_SUCCESS) {
+        printf("tcam_init error\n");
+        return FALSE;
+    }
+    entry[0].prio = 100;
+    entry[0].id = 1;
+    entry[1].prio = 300;
+    entry[1].id = 2;
+
+    entry[2].prio = 200;
+    entry[2].id = 3;
+
+    entry[3].prio = 400;
+    entry[3].id = 4;
+    entry[4].prio = 500;
+    entry[4].id = 5;
+
+    entry[5].prio = 600;
+    entry[5].id = 6;
+
+    entry[6].prio = 700;
+    entry[6].id = 7;
+
+    entry[7].prio = 800;
+    entry[7].id = 8;
+    
+    if((ret_val = tcam_insert(tcam, entry, 8)) != TCAM_ERR_SUCCESS) {
+        printf("tcam_insert failed : %d \n", ret_val);
+        return FALSE;
+    }
+
+    print_hw_tcam();
+
+    delete_tcam_entries(tcam, delete_entries, 2);
+    
+    print_hw_tcam();
+    
+    entry[0].prio = 150;
+    entry[0].id = 10;
+
+    entry[1].prio = 550;
+    entry[1].id = 11;
+
+    if((ret_val = tcam_insert(tcam, entry, 2)) != TCAM_ERR_SUCCESS) {
+        printf("tcam_insert failed : %d \n", ret_val);
+        return FALSE;
+    }
+    
+    print_hw_tcam();
+    tcam_cache_destroy(tcam);
+    return TRUE;
+}
+
 /*
  *  Description:
  *      UT to insert entries into a NULL TCAM 
@@ -203,12 +263,9 @@ int test_full_tcam()
 
 /*
  *  Description:
- *      UT to test for insertion of an entry in a full TCAM . 
-'*      This function inserts 2045 entries into TCAM and then 
- *       tries to insert 5 more entries into the TCAM. This 
- *       results in an error being returned. The function will
- *       check if that error is returned. if so the test passes ,
- *       else it fails  
+ *      UT to test for insertion of an entry and deletion of entries in TCAM . 
+'*      This function first inserts 5 entries into TCAM ,  then deletes 3
+ *      entries and later inserts 5 more entries.     
  *  Parameters
  *  Returns 1 if test passed else 0 
  */
@@ -247,6 +304,17 @@ int test_tcam_insert_1()
     return TRUE;
 }
 
+
+/*
+ *  Description:
+ *      UT to test for insertion of an entry and deletion of entries in TCAM . 
+'*      This function first inserts 5 entries into TCAM ,  then deletes 3
+ *      entries and later inserts 5 more entries.     
+ *  Parameters
+ *  Returns 1 if test passed else 0 
+ */
+
+
 int test_tcam_insert_2()
 {
     entry_t entries1[5] = {{1, 300}, {2,100}, {3,500}, {4,400},{5,600}};
@@ -278,6 +346,16 @@ int test_tcam_insert_2()
     
     return TRUE;
 }
+
+/*
+ *  Description:
+ *      UT to test for insertion of an entry and deletion of entries in TCAM . 
+'*      This function first inserts 10 entries into TCAM ,  then deletes 3
+ *      entries and later inserts 3 more entries.     
+ *  Parameters
+ *  Returns 1 if test passed else 0 
+ */
+
 
 int test_tcam_insert_3()
 {
@@ -312,6 +390,15 @@ int test_tcam_insert_3()
     return TRUE;
 }
 
+ /*
+ *  Description:
+ *      UT to test for insertion of an entry and deletion of entries in TCAM . 
+'*      This function first inserts 10 entries into TCAM ,  then deletes 3
+ *      entries and later inserts 3 more entries.     
+ *  Parameters
+ *  Returns 1 if test passed else 0 
+ */
+
 int test_tcam_insert_4()
 {
     entry_t entries1[10] = {{1, 100}, {2,50}, {3,550}, {4,250},{5,650},{6,800}, {7,100}, {8,450}, {9,350},{10,950}};
@@ -345,66 +432,12 @@ int test_tcam_insert_4()
     return TRUE;
 }
 
-int test_tcam_program()
-{
-    tcam_err_t ret_val = TCAM_ERR_SUCCESS;
-    void *tcam = NULL;
-    entry_t entry[10];
-    int32_t id = 0;
-    int delete_entries[2] = {3,6};
-    if((ret_val = tcam_init(hw_tcam, TCAM_MAX_ENTRIES, &tcam)) != TCAM_ERR_SUCCESS) {
-        printf("tcam_init error\n");
-        return FALSE;
-    }
-    entry[0].prio = 100;
-    entry[0].id = 1;
-    entry[1].prio = 300;
-    entry[1].id = 2;
 
-    entry[2].prio = 200;
-    entry[2].id = 3;
-
-    entry[3].prio = 400;
-    entry[3].id = 4;
-    entry[4].prio = 500;
-    entry[4].id = 5;
-
-    entry[5].prio = 600;
-    entry[5].id = 6;
-
-    entry[6].prio = 700;
-    entry[6].id = 7;
-
-    entry[7].prio = 800;
-    entry[7].id = 8;
-    
-    if((ret_val = tcam_insert(tcam, entry, 8)) != TCAM_ERR_SUCCESS) {
-        printf("tcam_insert failed : %d \n", ret_val);
-        return FALSE;
-    }
-
-    print_hw_tcam();
-
-    delete_tcam_entries(tcam, delete_entries, 2);
-    
-    print_hw_tcam();
-    
-    entry[0].prio = 150;
-    entry[0].id = 10;
-
-    entry[1].prio = 550;
-    entry[1].id = 11;
-
-    if((ret_val = tcam_insert(tcam, entry, 2)) != TCAM_ERR_SUCCESS) {
-        printf("tcam_insert failed : %d \n", ret_val);
-        return FALSE;
-    }
-    
-    print_hw_tcam();
-    tcam_cache_destroy(tcam);
-    return TRUE;
-}
-
+/*
+ *  Description : This function is used to test for the following scenario :
+ *           Fill the tcam_cache completely and delete 15entries in the middle . 
+ *           Then 10 new entries are inserted at the end of the table 
+ */
 
 int test_full_insert_remove()
 {
@@ -457,6 +490,11 @@ int test_full_insert_remove()
     return TRUE;
 }
     
+/*
+ *  Description : This function is used to test for the following scenario :
+ *           Fill the tcam_cache completely and delete 15 entries at the start of the cache . 
+ *           Then entries are inserted at the start  of the table 
+ */
 
 
 int test_full_insert_remove_start()
@@ -510,6 +548,13 @@ int test_full_insert_remove_start()
     return TRUE;
 }
 
+
+ /*
+ *  Description : This function is used to test for the following scenario :
+ *           Fill the tcam_cache completely and delete 15 entries at the start of the cache . 
+ *           Then entries are inserted at the start  of the table 
+ */
+
 int test_full_insert_remove_start_1()
 {
     entry_t entry[TCAM_MAX_ENTRIES];
@@ -561,6 +606,13 @@ int test_full_insert_remove_start_1()
     return TRUE;
 }
 
+ /*
+ *  Description : This function is used to test for the following scenario :
+ *           Fill the tcam_cache completely and delete 15 entries at the start of the cache . 
+ *           Then entries are inserted at the start  of the table 
+ */
+
+
 int test_full_insert_remove_start_2()
 {
     entry_t entry[TCAM_MAX_ENTRIES];
@@ -574,43 +626,48 @@ int test_full_insert_remove_start_2()
     }
 
     for (i = 0, prio = 20, id = 1; i < cnt; i++, id++, prio += 10) {
-	entry[i].prio = prio;
-	entry[i].id = id;
+        entry[i].prio = prio;
+        entry[i].id = id;
     }
-
-
+    
+    
     printf("\nInserting %d entries\n",cnt);
     if ((ret_val = tcam_insert(tcam, entry, cnt ))
-	!= TCAM_ERR_SUCCESS) {
-	printf("tcam_insert failed : %d \n", ret_val);
-	return FALSE;
+        != TCAM_ERR_SUCCESS) {
+        printf("tcam_insert failed : %d \n", ret_val);
+        return FALSE;
     }
-
+    
     //  print_hw_tcam();                                                                                                                                                                                                                                           
     printf("Deleting first 15 entries\n");
     /* delete first 15 entries */
     for (i = 0; i < 15; i++) {
-	if ((ret_val = tcam_remove(tcam, (i+1))) != TCAM_ERR_SUCCESS) {
+        if ((ret_val = tcam_remove(tcam, (i+1))) != TCAM_ERR_SUCCESS) {
             printf("tcam_remove(%d) failed : %d \n", (i+1), ret_val);
             return FALSE;
-	}
+        }
     }
-
+    
     print_hw_tcam_with_index(0, 30);
-
-/* add 10 new entries to TCAM, we should have room for 15 */
+    
     for (i = 0, prio = 1; i < 10; i++, id++, prio++) {
-	entry[i].prio = 200;
-	entry[i].id = id;
+        entry[i].prio = 200;
+        entry[i].id = id;
     }
     if ((ret_val = tcam_insert(tcam, entry, 10)) != TCAM_ERR_SUCCESS) {
-	printf("tcam_insert one failed : %d \n", ret_val);
-	return FALSE;
+        printf("tcam_insert one failed : %d \n", ret_val);
+        return FALSE;
     }
     print_hw_tcam_with_index(0, 30);
     tcam_cache_destroy(tcam);
     return TRUE;
 }
+
+/*
+ *  Description : This function is used to test for the following scenario :
+ *           Fill the tcam_cache completely and delete the last 15 entries  of the cache . 
+ *           Then entries are inserted in the middle
+ */
 
 int test_full_insert_remove_end()
 {
@@ -666,6 +723,11 @@ int test_full_insert_remove_end()
     return TRUE;
 }
 
+/*
+ *  Description : This function is used to test for the following scenario :
+ *           Fill the tcam_cache completely and delete the last 15 entries  of the cache . 
+ *           Then entries are inserted at the end
+ */
 
 int test_full_insert_remove_end_1()
 {
@@ -721,6 +783,11 @@ int test_full_insert_remove_end_1()
     return TRUE;
 }
 
+/*
+ *  Description : This function is used to test for the following scenario :
+ *           Fill the tcam_cache completely and delete the last 15 entries  of the cache . 
+ *           Then 10 entries with 2 different priorities are inserted in the middle
+ */
 
 int test_full_insert_remove_middle()
 {
@@ -776,6 +843,11 @@ int test_full_insert_remove_middle()
     return TRUE;
 }
 
+/*
+ *  Description : This function is used to test for the following scenario :
+ *           Fill the tcam_cache completely and delete the last 15 entries  of the cache . 
+ *           Then 10 entries with the same priority  are inserted in the middle
+ */
 
 int test_full_insert_remove_middle_1()
 {
@@ -831,8 +903,205 @@ int test_full_insert_remove_middle_1()
     return TRUE;
 }
 
+/*
+ *  Description : This function is used to test for the following scenario :
+ *           Fill the tcam_cache completely and delete entries in the middle . 
+ *           Then entries are inserted at the end of the table 
+ */
 
+int test_full_insert_remove_middle_insert_end()
+{
+    entry_t entry[TCAM_MAX_ENTRIES];
+    tcam_err_t ret_val = TCAM_ERR_SUCCESS;
+    void *tcam = NULL;
+    int result = TRUE, i, prio, id, cnt = TCAM_MAX_ENTRIES;
 
+    printf("Function to remove entries in middle and insert at the end\n");
+    if ((ret_val = tcam_init(hw_tcam, TCAM_MAX_ENTRIES, &tcam))
+        != TCAM_ERR_SUCCESS) {
+        printf("tcam_init error\n");
+        exit(1);
+    }
+    
+    for (i = 0, prio = 20, id = 1; i < cnt; i++, id++, prio += 10) {
+        entry[i].prio = prio;
+        entry[i].id = id;
+    }
+    
+    
+    printf("\nInserting %d entries\n",cnt);
+    if ((ret_val = tcam_insert(tcam, entry, cnt ))
+        != TCAM_ERR_SUCCESS) {
+        printf("tcam_insert failed : %d \n", ret_val);
+        return FALSE;
+    }
+    
+    print_hw_tcam_with_index(2015, 2045);
+    printf("Deleting last 15 entries\n");
+    /* delete  15 entries in the middle */
+    for (i = cnt; i > (cnt-15); i--, id++) {
+        if ((ret_val = tcam_remove(tcam, i))!= TCAM_ERR_SUCCESS) {
+            printf("tcam_remove(%d) failed : %d \n", i, ret_val);
+            return FALSE;
+        }
+    }
+    
+    print_hw_tcam_with_index(2015, 2045);
+    printf("Inserting new entries at the end \n");
+/* add 10 new entries to TCAM */
+    for (i = 0; i < 10; i++, id++, prio+= 10) {
+        entry[i].prio = prio;
+        entry[i].id = id;
+    }
+    if ((ret_val = tcam_insert(tcam, entry, 10)) != TCAM_ERR_SUCCESS) {
+        printf("tcam_insert one failed : %d \n", ret_val);
+        return FALSE;
+    }
+    print_hw_tcam_with_index(2015, 2045);
+    tcam_cache_destroy(tcam);
+    return TRUE;
+}
+
+/* Description :
+ *          This function tests for the following scenario :
+ *    The tcam_cache is filled completely and entries are deleted in the middle. Then new 
+ *    entries are are inserted after the hole that has been created . This will ensure that
+ *    the existing entries are shifted up to acomodate the new entries
+ */
+int test_full_insert_shift_up()
+{
+    entry_t entry[TCAM_MAX_ENTRIES];
+    tcam_err_t ret_val = TCAM_ERR_SUCCESS;
+    void *tcam = NULL;
+    int result = TRUE, i, prio, id, cnt = TCAM_MAX_ENTRIES;
+    if ((ret_val = tcam_init(hw_tcam, TCAM_MAX_ENTRIES, &tcam))
+        != TCAM_ERR_SUCCESS) {
+        printf("tcam_init error\n");
+        exit(1);
+    }
+    
+    for (i = 0, prio = 20, id = 1; i < cnt; i++, id++, prio += 10) {
+        entry[i].prio = prio;
+        entry[i].id = id;
+    }
+    
+    
+    printf("\nInserting %d entries\n",cnt);
+    if ((ret_val = tcam_insert(tcam, entry, cnt ))
+        != TCAM_ERR_SUCCESS) {
+        printf("tcam_insert failed : %d \n", ret_val);
+        return FALSE;
+    }
+    
+    print_hw_tcam_with_index(2018, 2048);
+    printf("Deleting 10 entries in the middle\n");
+    // delete  10 entries in the middle 
+    id = 2020;
+
+    for (i = 0; i < 10; i++, id++) {
+        if ((ret_val = tcam_remove(tcam, id))!= TCAM_ERR_SUCCESS) {
+            printf("tcam_remove(%d) failed : %d \n", id, ret_val);
+            return FALSE;
+        }
+    }
+    
+    print_hw_tcam_with_index(2000, 2040);
+    prio = 20350;
+    printf("Inserting new entries with id %d\n", id);
+    //add 10 new entries to TCAM 
+    for (i = 0; i < 5; i++, id++) {
+        entry[i].prio = prio;
+        entry[i].id = id;
+    }
+    prio = 20400;
+    printf("Inserting new entries with id %d\n", id);
+    //add 10 new entries to TCAM                                                                                                                                                                                                                       
+    for (i = 0; i < 5; i++, id++) {
+        entry[i+5].prio = prio;
+        entry[i+5].id = id;
+    }
+    if ((ret_val = tcam_insert(tcam, entry, 10)) != TCAM_ERR_SUCCESS) {
+        printf("tcam_insert one failed : %d \n", ret_val);
+        return FALSE;
+    }
+    print_hw_tcam_with_index(2000, 2040);
+    tcam_cache_destroy(tcam);
+    return TRUE;
+}
+
+/* Description :
+ *       This function tests for the following scenario :
+ *       The tcamc_cache is completely filled and entries are deleted in the middle. Then 
+ *       new entries are inserted such they will be accomodated in the empty slots and 
+ *       hence no entries are shifted up or down 
+ */
+int test_full_insert_no_shift()
+{
+    entry_t entry[TCAM_MAX_ENTRIES];
+    tcam_err_t ret_val = TCAM_ERR_SUCCESS;
+    void *tcam = NULL;
+    int result = TRUE, i, prio, id, cnt = TCAM_MAX_ENTRIES;
+    if ((ret_val = tcam_init(hw_tcam, TCAM_MAX_ENTRIES, &tcam))
+        != TCAM_ERR_SUCCESS) {
+        printf("tcam_init error\n");
+        exit(1);
+    }
+    
+    for (i = 0, prio = 20, id = 1; i < cnt; i++, id++, prio += 10) {
+        entry[i].prio = prio;
+        entry[i].id = id;
+    }
+    
+    
+    printf("\nInserting %d entries\n",cnt);
+    if ((ret_val = tcam_insert(tcam, entry, cnt ))
+        != TCAM_ERR_SUCCESS) {
+        printf("tcam_insert failed : %d \n", ret_val);
+        return FALSE;
+    }
+    
+    print_hw_tcam_with_index(2018, 2048);
+    printf("Deleting 10 entries in the middle\n");
+    // delete  10 entries in the middle 
+    id = 2020;
+
+    for (i = 0; i < 10; i++, id++) {
+        if ((ret_val = tcam_remove(tcam, id))!= TCAM_ERR_SUCCESS) {
+            printf("tcam_remove(%d) failed : %d \n", id, ret_val);
+            return FALSE;
+        }
+    }
+    
+    print_hw_tcam_with_index(2000, 2040);
+    prio = 20310;
+    printf("Inserting new entries with id %d\n", id);
+    //add 10 new entries to TCAM 
+    for (i = 0; i < 5; i++, id++) {
+        entry[i].prio = prio;
+        entry[i].id = id;
+    }
+    prio = 20300;
+    printf("Inserting new entries with id %d\n", id);
+    //add 10 new entries to TCAM                                                                                                                                                                                                                       
+    for (i = 0; i < 5; i++, id++) {
+        entry[i+5].prio = prio;
+        entry[i+5].id = id;
+    }
+    if ((ret_val = tcam_insert(tcam, entry, 10)) != TCAM_ERR_SUCCESS) {
+        printf("tcam_insert one failed : %d \n", ret_val);
+        return FALSE;
+    }
+    print_hw_tcam_with_index(2000, 2040);
+    tcam_cache_destroy(tcam);
+    return TRUE;
+}
+
+/*     Description :
+ *     This function tests for the following scenario :
+ *     The TCAM cache is completely filled and entries are deleted in the middle.
+ *     Then new entries are inserted before and after the hole  so that 
+ *     the existing entries are shifted down and up to accomodate the new entries
+ */
 int test_full_insert_shift_up_down()
 {
     entry_t entry[TCAM_MAX_ENTRIES];
@@ -872,11 +1141,18 @@ int test_full_insert_shift_up_down()
     
     print_hw_tcam_with_index(2000, 2040);
     prio = 20100;
-    printf("Inserting new entries with id %d\n", id);
+    printf("Inserting new entries starting with id %d\n", id);
     //add 10 new entries to TCAM 
-    for (i = 0; i < 10; i++, id++) {
+    for (i = 0; i < 5; i++, id++) {
         entry[i].prio = prio;
         entry[i].id = id;
+    }
+    prio = 20400;
+    printf("Inserting new entries starting with id %d\n", id);
+    //add 10 new entries to TCAM                                                                                                                                                                                                                       
+    for (i = 0; i < 5; i++, id++) {
+        entry[i+5].prio = prio;
+        entry[i+5].id = id;
     }
     if ((ret_val = tcam_insert(tcam, entry, 10)) != TCAM_ERR_SUCCESS) {
         printf("tcam_insert one failed : %d \n", ret_val);
@@ -890,17 +1166,18 @@ int test_full_insert_shift_up_down()
 
 int main()
 {
-    ut_ptr_t ut_fn[18] ={test_full_tcam,test_tcam_insert_1, test_null_tcam_insert, test_null_tcam_remove,
-                           test_invalid_id_tcam_remove,test_tcam_insert_2,test_tcam_insert_3,
+    ut_ptr_t ut_fn[21] ={test_full_tcam,test_tcam_insert_1, test_null_tcam_insert, test_null_tcam_remove,
+                         test_invalid_id_tcam_remove,test_tcam_insert_2,test_tcam_insert_3,
                          test_tcam_insert_4, test_tcam_program,test_full_insert_remove,test_full_insert_remove_start,
                          test_full_insert_remove_start_1, test_full_insert_remove_start_2, test_full_insert_remove_end,
-                        test_full_insert_remove_end_1, test_full_insert_remove_middle, test_full_insert_remove_middle_1,
-    test_full_insert_shift_up_down};
+                         test_full_insert_remove_end_1, test_full_insert_remove_middle, test_full_insert_remove_middle_1,
+                         test_full_insert_shift_up,test_full_insert_no_shift, test_full_insert_shift_up_down,
+                         test_full_insert_remove_middle_insert_end};
     int result = 1, total_tests = 0;
     int fail_count = 0, pass_count = 0, i;
-    total_tests = 18;
+    total_tests = 21;
     for(i = 0;i < total_tests; i++) {
-        printf("\n Test Case %d\n",i);
+        printf("\n Test Case %d\n",i+1);
         result = (*ut_fn[i])();
         if(!result)
             fail_count++;
